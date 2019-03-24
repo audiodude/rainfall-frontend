@@ -12,11 +12,10 @@ def create_venv(name):
 
   try:
     subprocess.check_output([
-      '%s/bin/python3' % path, '-m', 'pip', 'install', '--system',
-      '--target=/var/data/f/foobar/venv/lib/python3.6/site-packages',
+      '%s/bin/pip' % path, 'install',
       '-r', req_path, '--no-cache-dir'
     ], stderr=subprocess.STDOUT)
-  except subprocess.CalledProcessError as e:
+  except Exception as e:
     print(e.output)
     raise
 

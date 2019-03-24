@@ -17,19 +17,22 @@ app.debug = True
 
 def clone_repo(name):
   start_char = name[0]
-  pathlib.Path('/var/data/%s' % start_char).mkdir(parents=True, exist_ok=True)
+  subprocess.check_call([
+    'sudo', '-u', 'www-data', 'mkdir', '-p',
+    '/var/data/%s' % start_char,
+  ])
   path = '/var/data/%s/%s/' % (start_char, name)
-  completed = subprocess.run([
-    'git', 'clone',
+  subprocess.check_call([
+    'sudo', '-u', 'www-data', 'git', 'clone',
     'https://github.com/audiodude/rainfall.git',
     path,
   ])
-  return completed.returncode == 0
+  return True
 
 def create_venv(name):
   try:
     output = subprocess.check_output([
-      '/usr/bin/python3',
+      'sudo', '-u', 'www-data', '/usr/bin/python3',
       '/home/tmoney/code/rainfall-frontend/create_venv.py',
     name], stderr=subprocess.STDOUT)
   except Exception as e:
