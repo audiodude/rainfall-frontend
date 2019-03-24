@@ -1,0 +1,18 @@
+upstream {{name}} {
+  server unix:///var/run/uwsgi/{{name}}.socket;
+}
+
+server {
+  listen 443 ssl;
+  listen [::]:443 ssl;
+
+  ssl_certificate /etc/letsencrypt/live/rainfall.dev-0001/fullchain.pem;
+  ssl_certificate_key /etc/letsencrypt/live/rainfall.dev-0001/privkey.pem;
+
+  server_name {{name}}.rainfall.dev;
+
+  location / {
+    include uwsgi_params;
+    uwsgi_pass {{name}};
+  }
+}
