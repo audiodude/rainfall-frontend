@@ -2,6 +2,7 @@ from datetime import timedelta
 import pip
 import os
 import pathlib
+import re
 import subprocess
 import sys
 import time
@@ -92,7 +93,7 @@ def update_nginx(name):
 
 @app.route('/')
 def index():
-  if flask.session.get('user_id'):
+  if flask.session.get('user_id') and False:
     return flask.redirect('/edit')
 
   return flask.render_template('index.html')
@@ -111,11 +112,24 @@ def tokensignin():
       raise ValueError('Wrong client.')
 
     user_id = idinfo['sub']
+
+    rainfall_db.users.update_one({'user_id': user_id}, {'$set': {
+      'user_id': user_id,
+      'email': idinfo['email'],
+      'name': idinfo['name'],
+      'picture': idinfo['picture'],
+    }}, upsert=True)
     flask.session['user_id'] = user_id
-    return ('', 201)
-  except ValueError:
+    return ('', 204)
+  except ValueError as e:
+    print(e)
     # Invalid token
     return ('Sign in error', 403)
+
+@app.route('/signout')
+def signout():
+  del flask.session['user_id']
+  return flask.redirect('/')
 
 @app.route('/edit')
 def edit():
@@ -131,11 +145,27 @@ def edit():
 
 @app.route('/new')
 def new():
-  return flask.render_template('new.html')
+  user_id = flask.session.get('user_id')
+  if not user_id:
+    return flask.redirect('/')
+
+  user = rainfall_db.users.find_one({'user_id': user_id})
+  if not user:
+    return flask.redirect('/')
+
+  return flask.render_template('new.html', user=user)
+
+def sanitize(name):
+  name = re.sub('[^a-zA-Z0-9]', '-', name)
+  name = re.sub('-+', '-', name)
+  return name
 
 @app.route('/create', methods=['POST'])
 def create():
   name = flask.request.form['username']
+  name = sanitize(name)
+
+  print(name)
 
   if clone_repo(name) and create_venv(name):
     insert_mongo_record(name)
