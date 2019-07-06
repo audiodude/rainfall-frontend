@@ -66,7 +66,7 @@ gid = www-data
 wsgi-file = /var/data/%(start_char)s/%(name)s/sitebuilder.py
 plugin = python
 callable = app
-env = RAINFALL_USERNAME=%s(name)
+env = RAINFALL_USERNAME=%(name)s
 ''' % {'start_char': start_char, 'name': name},
     "ts" : time.gmtime(),
     "socket" : "/var/run/uwsgi/%s.socket" % name,
@@ -90,6 +90,12 @@ def update_nginx(name):
       ['sudo', 'service', 'nginx', 'reload'], stderr=subprocess.STDOUT)
   except Exception as e:
     raise ValueError(e.output)
+
+def insert_rainfall_site(name):
+  rainfall_db.sites.update_one({'user_id': user_id}, {'$set': {
+      'user_id': user_id,
+      'site_id': name,
+    }}, upsert=True)
 
 @app.route('/')
 def index():
@@ -162,14 +168,25 @@ def sanitize(name):
 
 @app.route('/create', methods=['POST'])
 def create():
-  name = flask.request.form['username']
-  name = sanitize(name)
+  user_id = flask.session.get('user_id')
+  if not user_id:
+    return flask.redirect('/')
 
-  print(name)
+  user = rainfall_db.users.find_one({'user_id': user_id})
+  if not user:
+    return flask.redirect('/')
+
+  terms = flask.request.form.get('terms-check')
+  if not terms:
+    return flask.render_template('new.html', user=user, errors=['terms'])
+
+  name = user['email']
+  name = sanitize(name)
 
   if clone_repo(name) and create_venv(name):
     insert_mongo_record(name)
     update_nginx(name)
+    insert_rainfall_site(name)
     return flask.redirect('https://%s.rainfall.dev' % name)
   else:
     return 'Error'
