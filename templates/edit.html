@@ -32,6 +32,57 @@
   </script>
   <script src="https://apis.google.com/js/platform.js?onload=init" async defer></script>
 
+</head>
+<body>
+  <div class="container-fluid full-height">
+    <div class="row full-height">
+      <div class="col-4">
+        <nav class="navbar navbar-expand-lg navbar-light bg-light">
+          <a class="navbar-brand" href="#">Rainfall</a>
+          <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+          </button>
+          <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav">
+              <li id="new-nav" class="nav-item active">
+                <a class="nav-link" href="#new">New Song</a>
+              </li>
+              <li id="songs-nav" class="nav-item">
+                <a class="nav-link" href="#songs">Songs</a>
+              </li>
+              <li id="site-nav" class="nav-item">
+                <a class="nav-link" href="#site">Site</a>
+              </li>
+            </ul>
+          </div>
+        </nav>
+
+        <div id="new" class="section">
+          <h1>New song</h1>
+        </div>
+
+        <div id="songs" class="section" style="display: none;">
+          <h1>Edit songs</h1>
+        </div>
+
+        <div id="site" class="section" style="display: none;">
+          <h1>Edit site</h1>
+          <div class="form-group">
+            <button type="submit" class="btn btn-danger"
+                    onclick="return confirmDelete()">Delete site</button>
+          </div>
+        </div>
+      </div>
+      <div class="col">
+        <iframe src="https://{{site['site_id']}}.rainfall.dev" width="100%" height="100%"></iframe>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/js/jquery.min.js"></script>
+  <script src="/static/js/popper.min.js"></script>
+  <script src="/static/js/bootstrap.min.js"></script>
+
   <script>
     function confirmDelete() {
       if (confirm('Are you sure you want to delete this site? Your login ' +
@@ -41,22 +92,18 @@
       }
       return false;
     }
+
+    $(function() {
+      $(window).on('hashchange', function(e){
+        var hash = location.hash;
+
+        $('.section').hide();
+        $(hash).show();
+
+        $('.nav-item').removeClass('active');
+        $(hash + '-nav').addClass('active');
+      });
+   });
   </script>
-</head>
-<body>
-  <div class="container-fluid full-height">
-    <div class="row full-height">
-      <div class="col-4">
-        <h2>Edit site</h2>
-        <div class="form-group">
-          <button type="submit" class="btn btn-danger"
-                  onclick="return confirmDelete()">Delete site</button>
-        </div>
-      </div>
-      <div class="col">
-        <iframe src="https://{{site['site_id']}}.rainfall.dev" width="100%" height="100%">
-      </div>
-    </div>
-  </div>
 </body>
 </html>
