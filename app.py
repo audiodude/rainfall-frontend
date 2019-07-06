@@ -40,8 +40,16 @@ def clone_repo(name):
   path = '/var/data/%s/%s/' % (start_char, name)
   subprocess.check_call([
     'sudo', '-u', 'www-data', 'git', 'clone',
-    'https://github.com/audiodude/rainfall.git',
+    'https://github.com/audiodude/rainfall-template.git',
     path,
+  ])
+  return True
+
+def delete_repo(name):
+  start_char = name[0]
+  path = '/var/data/%s/%s/' % (start_char, name)
+  subprocess.check_call([
+    'sudo', '-u', 'www-data', 'rm', '-rf', path,
   ])
   return True
 
@@ -67,6 +75,7 @@ wsgi-file = /var/data/%(start_char)s/%(name)s/sitebuilder.py
 plugin = python
 callable = app
 env = RAINFALL_USERNAME=%(name)s
+env = CHECK_REFERER=1
 ''' % {'start_char': start_char, 'name': name},
     "ts" : time.gmtime(),
     "socket" : "/var/run/uwsgi/%s.socket" % name,
@@ -74,6 +83,10 @@ env = RAINFALL_USERNAME=%(name)s
   }
 
   emperor_db.vassals.insert_one(mongo_config)
+
+
+def delete_mongo_record(name):
+  emperor_db.vassals.delete_one({'name': '%s.ini' % name})
 
 def update_nginx(name):
   config = flask.render_template('nginx.txt', name=name)
@@ -91,11 +104,25 @@ def update_nginx(name):
   except Exception as e:
     raise ValueError(e.output)
 
-def insert_rainfall_site(name):
+
+def delete_nginx(name):
+  config_path = '/etc/nginx/sites-available/%s' % name
+  enabled_path = '/etc/nginx/sites-enabled/%s' % name
+  if os.path.isfile(enabled_path):
+    os.unlink(enabled_path)
+  if os.path.isfile(config_path):
+    os.unlink(config_path)
+  return True
+
+def insert_rainfall_site(user_id, name):
   rainfall_db.sites.update_one({'user_id': user_id}, {'$set': {
       'user_id': user_id,
       'site_id': name,
     }}, upsert=True)
+
+def delete_rainfall_site(user_id):
+  rainfall_db.sites.delete_one({'user_id': user_id})
+  return True
 
 @app.route('/')
 def index():
@@ -159,6 +186,10 @@ def new():
   if not user:
     return flask.redirect('/')
 
+  site = rainfall_db.sites.find_one({'user_id': user_id})
+  if site:
+    return flask.redirect('/edit')
+
   return flask.render_template('new.html', user=user)
 
 def sanitize(name):
@@ -186,7 +217,29 @@ def create():
   if clone_repo(name) and create_venv(name):
     insert_mongo_record(name)
     update_nginx(name)
-    insert_rainfall_site(name)
-    return flask.redirect('https://%s.rainfall.dev' % name)
+    insert_rainfall_site(user_id, name)
+    return flask.redirect('/edit')
   else:
     return 'Error'
+
+@app.route('/destroy', methods=['POST'])
+def destroy():
+  user_id = flask.session.get('user_id')
+  if not user_id:
+    return flask.redirect('/')
+
+  user = rainfall_db.users.find_one({'user_id': user_id})
+  if not user:
+    return flask.redirect('/')
+
+  name = user['email']
+  name = sanitize(name)
+
+  delete_repo(name)
+  delete_mongo_record(name)
+  delete_nginx(name)
+  delete_rainfall_site(user_id)
+  rainfall_db.users.delete_one({'user_id': user_id})
+
+  return flask.redirect('/')
+  
