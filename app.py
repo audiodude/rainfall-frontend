@@ -6,6 +6,7 @@ import re
 import subprocess
 import sys
 import time
+import urllib.request
 import venv
 
 from google.oauth2 import id_token
@@ -74,7 +75,7 @@ gid = www-data
 wsgi-file = /var/data/%(start_char)s/%(name)s/sitebuilder.py
 plugin = python
 callable = app
-env = RAINFALL_USERNAME=%(name)s
+env = RAINFALL_SITE_ID=%(name)s
 env = CHECK_REFERER=1
 ''' % {'start_char': start_char, 'name': name},
     "ts" : time.gmtime(),
@@ -83,7 +84,6 @@ env = CHECK_REFERER=1
   }
 
   emperor_db.vassals.insert_one(mongo_config)
-
 
 def delete_mongo_record(name):
   emperor_db.vassals.delete_one({'name': '%s.ini' % name})
@@ -118,11 +118,33 @@ def insert_rainfall_site(user_id, name):
   rainfall_db.sites.update_one({'user_id': user_id}, {'$set': {
       'user_id': user_id,
       'site_id': name,
+      'header': 'Songs and Sounds by [Rainfall](https://rainfall.dev)',
+      'footer': 'Copyright 2019, All Rights Reserved',
     }}, upsert=True)
 
 def delete_rainfall_site(user_id):
   rainfall_db.sites.delete_one({'user_id': user_id})
   return True
+
+def wait_for_site_ready(site_id):
+  retries = 5
+  retrySeconds = .5
+
+  while True:
+    if retries <= 0:
+      return False
+    request = urllib.request.Request(
+      'https://%s.rainfall.dev/' % site_id,
+      headers={'Referer' : 'https://rainfall.dev/edit'})
+    try:
+      with urllib.request.urlopen(request) as res:
+        if res.getcode() == 200:
+          return True
+    except:
+      pass
+    finally:
+      time.sleep(retrySeconds)
+      retries -= 1
 
 @app.route('/')
 def index():
@@ -174,7 +196,33 @@ def edit():
   if not site:
     return flask.redirect('/new')
 
+  wait_for_site_ready(site['site_id'])
   return flask.render_template('edit.html', site=site)
+
+@app.route('/update', methods=['POST'])
+def update():
+  user_id = flask.session.get('user_id')
+  if not user_id:
+    return flask.redirect('/')
+
+  site = rainfall_db.sites.find_one({'user_id': user_id})
+  if not site:
+    return flask.redirect('/new')
+
+  header = flask.request.form.get('header')
+  footer = flask.request.form.get('footer')
+
+  if header is not None or footer is not None:
+    rainfall_db.sites.update({
+      'site_id': site['site_id'],
+    }, {
+      '$set': {
+        'header': header,
+          'footer': footer,
+      }
+    })
+
+  return flask.redirect('/edit#site')
 
 @app.route('/new')
 def new():
