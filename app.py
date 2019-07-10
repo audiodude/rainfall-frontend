@@ -274,7 +274,21 @@ def upload():
   raw_tags = flask.request.form.get('tags', '')
   tags = process_tags(raw_tags)
 
-  return flask.redirect('edit#new')
+  song_document = {
+    'name': name,
+    'slug': slug,
+    'description': description,
+    'tags': tags,
+    'date_created': time.time(),
+  }
+
+  rainfall_db.sites.update({
+    'site_id': site['site_id'],
+  }, {
+    '$addToSet': {'songs': song_document},
+  })
+
+  return ('', 203)
 
 @app.route('/new')
 def new():
