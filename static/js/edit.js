@@ -7,7 +7,8 @@ function confirmDelete() {
 }
 
 function uploadSong() {
-  console.log(new FormData($('#song-form').get(0)));
+  $('#song-error-cont').html('');
+
   $.ajax({
     xhr: function() {
       var xhr = new window.XMLHttpRequest();      
@@ -30,8 +31,21 @@ function uploadSong() {
     data: new FormData($('#song-form').get(0)),
     contentType: false,
     processData: false,
+    error: function(result) {
+          $('#song-error-cont').append(
+            '<div class="alert alert-danger" role="alert">' +
+            'An error occurred.</div>');
+    },
     success: function(result) {
-      console.log(result);
+      if (result['errors']) {
+        for (var i = 0; i < result['errors'].length; i++) {
+          $('#song-error-cont').append(
+            '<div class="alert alert-danger" role="alert">' +
+            result['errors'][i] + '</div>');
+        }
+      } else {
+        document.location.reload();
+      }
     }
   });
 }

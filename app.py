@@ -240,22 +240,39 @@ def get_slug(filename):
   filename = re.sub('\W', '_', base)
   return re.sub('--+', '', filename)
 
+def process_tags(raw_tags):
+  tags = []
+  chunks = re.split('[ ,]', raw_tags)
+  for chunk in chunks:
+    if chunk.startswith('#'):
+      tags.append(chunk.replace('#', ''))
+  return tags
+
 @app.route('/upload', methods=['POST'])
 def upload():
   user_id = flask.session.get('user_id')
   if not user_id:
-    return flask.redirect('/')
+    return ('Not Authorized', 403)
 
   site = rainfall_db.sites.find_one({'user_id': user_id})
   if not site:
-    return flask.redirect('/new')
+    return ('No site', 404)
 
   name = flask.request.form.get('name')
+  if not name:
+    return flask.jsonify({'errors': ['Name is required']})
+
   song = flask.request.files['song']
-  if name and song and allowed_file(song.filename):
+  if song and allowed_file(song.filename):
     slug = get_slug(secure_filename(name))
     path = os.path.join(get_song_directory(site['site_id']), slug + '.mp3')
     song.save(path)
+  else:
+    return flask.jsonify({'errors': ['Song is required and must be an mp3']})
+
+  description = flask.request.form.get('description', '')
+  raw_tags = flask.request.form.get('tags', '')
+  tags = process_tags(raw_tags)
 
   return flask.redirect('edit#new')
 
