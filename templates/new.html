@@ -63,7 +63,7 @@
         </div>
       </div>
       <div class="new-card">
-        <form action="/create" method="POST">
+        <form id="create-form" action="/create" method="POST">
           <div class="form-group">
             <div class="form-check mb-3">
               {% if errors and 'terms' in errors %}
@@ -75,7 +75,10 @@
                 I agree to the <a href="/terms">terms of use</a>
               </label>
             </div>
-            <button type="submit" class="btn btn-primary">Create my site</button>
+            <button id="create-btn"
+                    type="submit" class="btn btn-primary">
+              Create my site
+            </button>
           </div>
         </form>
       </div>
@@ -84,5 +87,6 @@
   <script src="/static/js/jquery.min.js"></script>
   <script src="/static/js/popper.min.js"></script>
   <script src="/static/js/bootstrap.min.js"></script>
+  <script src="/static/js/new.js"></script>
 </body>
 </html>
