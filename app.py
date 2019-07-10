@@ -14,6 +14,7 @@ from google.auth.transport import requests
 import flask
 from flask_session import Session
 import pymongo
+from werkzeug.utils import secure_filename
 
 client = pymongo.MongoClient(connect=False)
 emperor_db = client.emperor
@@ -31,6 +32,8 @@ app.config.update({
   'PERMANENT_SESSION_LIFETIME': timedelta(days=90),
 })
 app.debug = True
+
+ALLOWED_EXTENSIONS = set(['mp3'])
 
 def clone_repo(name):
   start_char = name[0]
@@ -218,11 +221,43 @@ def update():
     }, {
       '$set': {
         'header': header,
-          'footer': footer,
+        'footer': footer,
       }
     })
 
   return flask.redirect('/edit#site')
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def get_song_directory(site_id):
+  start_char = site_id[0]
+  return '/var/data/%s/%s/static/mp3' % (start_char, site_id)
+
+def get_slug(filename):
+  base = filename.split('.', 1)[0]
+  filename = re.sub('\W', '_', base)
+  return re.sub('--+', '', filename)
+
+@app.route('/upload', methods=['POST'])
+def upload():
+  user_id = flask.session.get('user_id')
+  if not user_id:
+    return flask.redirect('/')
+
+  site = rainfall_db.sites.find_one({'user_id': user_id})
+  if not site:
+    return flask.redirect('/new')
+
+  name = flask.request.form.get('name')
+  song = flask.request.files['song']
+  if name and song and allowed_file(song.filename):
+    slug = get_slug(secure_filename(name))
+    path = os.path.join(get_song_directory(site['site_id']), slug + '.mp3')
+    song.save(path)
+
+  return flask.redirect('edit#new')
 
 @app.route('/new')
 def new():
