@@ -125,10 +125,6 @@ def insert_rainfall_site(user_id, name):
       'footer': 'Copyright 2019, All Rights Reserved',
     }}, upsert=True)
 
-def delete_rainfall_site(user_id):
-  rainfall_db.sites.delete_one({'user_id': user_id})
-  return True
-
 def wait_for_site_ready(site_id):
   retries = 5
   retrySeconds = .5
@@ -346,14 +342,17 @@ def destroy():
   if not user:
     return flask.redirect('/')
 
-  name = user['email']
-  name = sanitize(name)
+  name = sanitize(user['email'])
 
   delete_repo(name)
   delete_mongo_record(name)
   delete_nginx(name)
-  delete_rainfall_site(user_id)
-  rainfall_db.users.delete_one({'user_id': user_id})
+  result = rainfall_db.sites.delete_one({'user_id': user_id})
+  if result.deleted_count < 1:
+    raise Exception(user_id)
+  result = rainfall_db.users.delete_one({'user_id': user_id})
+  if result.deleted_count < 1:
+    raise Exception(user_id)
 
   return flask.redirect('/')
   
