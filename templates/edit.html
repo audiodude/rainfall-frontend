@@ -11,6 +11,11 @@
   <link rel="stylesheet" href="/static/css/edit.css">
 
   <script>
+    NETLIFY_CLIENT_ID = '{{ NETLIFY_CLIENT_ID | safe }}';
+    NETLIFY_ACCESS_TOKEN = '{{ netlify_token | safe }}';
+  </script>
+
+  <script>
     function init() {
       gapi.load('auth2', function() {
         gapi.auth2.init();
@@ -120,6 +125,55 @@
               </button>
             </div>
           </form>
+
+          <hr>
+
+          <p>
+            When you are done uploading songs and making changes, or even when
+            you've only got a few things finished but want to see how your site
+            looks, you can connect to Netlify and publish your site.
+          </p>
+          <div id="netlify-step-1"
+               style="{{ 'display: none;' if netlify_token else ''}}">
+            <p>
+              When you click the button below, you will be asked to connect
+              to Netlify and grant permissions to this site, Rainfall.dev to
+              make changes to your Netlify account (just to publish the
+              site).
+            </p>
+
+            <button type="button" class="btn btn-secondary"
+                    onclick="netlifyPopup()">
+              Connect to Netlify to publish site
+            </button>
+          </div>
+
+          <div id="netlify-step-2"
+               style="{{ 'display: none;' if not netlify_token else ''}}">
+            <p>
+              You're almost done. Now that you've connected your Netlify
+              account to your Rainfall.dev account, you can publish your site
+              to Netlify. Note: this will make your site and your songs live
+              on the internet and viewable by anyone (who knows the URL).
+            </p>
+
+            <button type="button" class="btn btn-primary"
+                    onclick="netlifyPublish()">
+              Publish my site
+            </button>
+          </div>
+
+          <div id="netlify-error" style="display: none;">
+            <p style="color: red">
+              There was a problem connecting your Netlify account. You can
+              try again below.
+            </p>
+
+            <button type="button" class="btn btn-secondary"
+                    onclick="netlifyPopup()">
+              Retry connecting to Netlify
+            </button>
+          </div>
 
           <hr>
 

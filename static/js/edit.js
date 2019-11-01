@@ -50,6 +50,53 @@ function uploadSong() {
   });
 }
 
+$.oauthpopup = function(options) {
+  options.windowName = 'ConnectWithOAuth'; // should not include space for IE
+  options.windowOptions = 'location=0,status=0,width=800,height=400';
+  options.callback = options.callback || function() {
+    window.location.reload();
+  };
+
+  var that = this;
+  that._oauthWindow = window.open(
+    options.path, options.windowName, options.windowOptions);
+  that._oauthInterval = window.setInterval(function(){
+    if (that._oauthWindow.closed) {
+      window.clearInterval(that._oauthInterval);
+      options.callback();
+    }
+  }, 1000);
+};
+
+function netlifyPopup() {
+  $('#netlify-error').hide();
+  $.oauthpopup({
+    path: ('https://app.netlify.com/authorize?response_type=token' +
+      '&client_id=' + NETLIFY_CLIENT_ID +
+      '&redirect_uri=https%3A%2F%2Frainfall.dev%2Foauth2'),
+    callback: function() {
+      $.ajax({
+        dataType: 'json',
+        url: '/netlify_token',
+        success: function(data) {
+          $('#netlify-step-1').hide();
+          if (data.token) {
+            NETLIFY_ACCESS_TOKEN = data.token;
+            $('#netlify-step-2').show();
+          } else {
+            $('#netlify-error').show();
+          }
+        },
+        error: function(data) {
+          $('#netlify-step-1').hide();
+          $('#netlify-error').show();
+        }
+      });
+    }
+  });
+}
+
+
 $(function() {
   function updateFromHash() {
     var hash = location.hash || '#new';

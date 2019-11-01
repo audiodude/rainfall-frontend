@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <script src="/static/js/jquery.min.js"></script>
+  <script>
+    $.ajax({
+      url: '/capture_token?' + window.location.hash.substring(1),
+      complete: function() {
+        window.open('','_parent',''); 
+        window.close();
+      }
+    });
+  </script>
+</head>
+<body>
+</body>
+</html>

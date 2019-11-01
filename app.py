@@ -20,7 +20,9 @@ client = pymongo.MongoClient(connect=False)
 emperor_db = client.emperor
 rainfall_db = client.rainfall
 
-CLIENT_ID = os.environ['RAINFALL_CLIENT_ID']
+GOOGLE_CLIENT_ID = os.environ['RAINFALL_CLIENT_ID']
+NETLIFY_CLIENT_ID = os.environ['RAINFALL_NETLIFY_CLIENT_ID']
+NETLIFY_CLIENT_SECRET = os.environ['RAINFALL_NETLIFY_CLIENT_SECRET']
 
 app = flask.Flask(__name__)
 app.config.update({
@@ -147,22 +149,51 @@ def wait_for_site_ready(site_id):
 
 @app.route('/')
 def index():
-  if flask.session.get('user_id') and False:
+  if flask.session.get('user_id'):
     return flask.redirect('/edit')
 
   return flask.render_template('index.html')
+
+@app.route('/oauth2')
+def oauth2():
+  return flask.render_template('capture_token.html')
+
+@app.route('/capture_token')
+def capture_token():
+  user_id = flask.session.get('user_id')
+  if user_id:
+    access_token = flask.request.args.get('access_token')
+    if access_token:
+      rainfall_db.users.update_one({'user_id': user_id}, {'$set': {
+        'netlify_access_token': access_token,
+      }}, upsert=True)
+
+  return ('', 204)
+
+@app.route('/netlify_token')
+def netlify_token():
+  user_id = flask.session.get('user_id')
+  if not user_id:
+    return flask.jsonify({'token': ''})
+
+  user = rainfall_db.users.find_one({'user_id': user_id})
+  if not user:
+    return flask.jsonify({'token': ''})
+
+  return flask.jsonify({'token': user['netlify_access_token']})
 
 @app.route('/tokensignin', methods=['POST'])
 def tokensignin():
   token = flask.request.form['id_token']
   try:
-    idinfo = id_token.verify_oauth2_token(token, requests.Request(), CLIENT_ID)
+    idinfo = id_token.verify_oauth2_token(token, requests.Request(),
+                                          GOOGLE_CLIENT_ID)
 
     if idinfo['iss'] not in (
         'accounts.google.com', 'https://accounts.google.com'):
       raise ValueError('Wrong issuer.')
 
-    if idinfo['aud'] != CLIENT_ID:
+    if idinfo['aud'] != GOOGLE_CLIENT_ID:
       raise ValueError('Wrong client.')
 
     user_id = idinfo['sub']
@@ -191,12 +222,17 @@ def edit():
   if not user_id:
     return flask.redirect('/')
 
+  user = rainfall_db.users.find_one({'user_id': user_id})
+  netlify_token = user and user.get('netlify_access_token')
+
   site = rainfall_db.sites.find_one({'user_id': user_id})
   if not site:
     return flask.redirect('/new')
 
   wait_for_site_ready(site['site_id'])
-  return flask.render_template('edit.html', site=site)
+  return flask.render_template(
+    'edit.html', site=site, NETLIFY_CLIENT_ID=NETLIFY_CLIENT_ID,
+    netlify_token=netlify_token)
 
 @app.route('/update', methods=['POST'])
 def update():
