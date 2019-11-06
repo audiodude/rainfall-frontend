@@ -71,6 +71,20 @@ def create_venv(name):
     raise TypeError(e.output)
   return True
 
+def build_site(site_id):
+  start_char = site_id[0]
+  base_path = '/var/data/%s/%s' % (start_char, site_id)
+  try:
+    subprocess.check_call([
+      'sudo', '-u', 'www-data',
+      'RAINFALL_SITE_ID=%s' % site_id,
+      '%s/venv/bin/python3' % base_path,
+      '%s/sitebuilder.py' % base_path,
+      'build'
+    ], stderr=subprocess.STDOUT)
+  except Exception as e:
+    raise TypeError(e.output)
+
 def insert_mongo_record(name):
   start_char = name[0]
   mongo_config = {
@@ -251,6 +265,7 @@ def publish():
   if not site:
     return ('Bad Request', 400)
 
+  build_site(site['site_id'])
   return ('No Content', 204)
 
 @app.route('/update', methods=['POST'])
