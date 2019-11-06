@@ -65,8 +65,7 @@
         <div id="new" class="section">
           <h3>New song</h3>
           <div id="song-error-cont"></div>
-          <form id="song-form" class="mt-3"
-                method="POST" action="/update">
+          <form id="song-form" class="mt-3">
             <div class="form-group">
               <label for="song-name">Name</label>
               <input class="form-control" id="song-name" name="name"
@@ -110,6 +109,7 @@
         <div id="site" class="section" style="display: none;">
           <form class="mt-3"
                 method="POST" action="/update">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
             <div class="form-group">
               <label for="site-header">Site header</label>
               <textarea class="form-control" rows="4" id="site-header" name="header">{{site['header']}}</textarea>
