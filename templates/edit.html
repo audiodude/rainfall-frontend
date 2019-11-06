@@ -13,6 +13,7 @@
   <script>
     NETLIFY_CLIENT_ID = '{{ NETLIFY_CLIENT_ID | safe }}';
     NETLIFY_ACCESS_TOKEN = '{{ netlify_token | safe }}';
+    CSRF_TOKEN = '{{ csrf_token() }}';
   </script>
 
   <script>

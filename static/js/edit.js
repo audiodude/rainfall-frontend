@@ -15,12 +15,8 @@ function uploadSong() {
       xhr.upload.addEventListener("progress", function(evt) {
         if (evt.lengthComputable) {
           var percentComplete = Math.floor(evt.loaded * 100 / evt.total);
-          console.log(percentComplete);
-
           if (percentComplete === 100) {
-            console.log('done');
           }
-
         }
       }, false);
 
@@ -29,6 +25,9 @@ function uploadSong() {
     url: '/upload',
     type: "POST",
     data: new FormData($('#song-form').get(0)),
+    headers: {
+      'X-CSRFToken': CSRF_TOKEN,
+    },
     contentType: false,
     processData: false,
     error: function(result) {
@@ -78,6 +77,9 @@ function netlifyPopup() {
       $.ajax({
         dataType: 'json',
         url: '/netlify_token',
+        headers: {
+          'X-CSRFToken': CSRF_TOKEN,
+        },
         success: function(data) {
           $('#netlify-step-1').hide();
           if (data.token) {
@@ -93,6 +95,20 @@ function netlifyPopup() {
         }
       });
     }
+  });
+}
+
+function netlifyPublish() {
+  $.ajax({
+    url: '/publish',
+    method: 'POST',
+    headers: {
+      'X-CSRFToken': CSRF_TOKEN,
+    },
+    success: function() {
+      alert('success');
+    },
+    error: function() {},
   });
 }
 

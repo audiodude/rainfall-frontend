@@ -13,6 +13,7 @@ from google.oauth2 import id_token
 from google.auth.transport import requests
 import flask
 from flask_session import Session
+from flask_wtf.csrf import CSRFProtect
 import pymongo
 from werkzeug.utils import secure_filename
 
@@ -33,6 +34,7 @@ app.config.update({
   'SECRET_KEY': os.environ['FLASK_SECRET'],
   'PERMANENT_SESSION_LIFETIME': timedelta(days=90),
 })
+csrf = CSRFProtect(app)
 app.debug = True
 
 ALLOWED_EXTENSIONS = set(['mp3'])
@@ -233,6 +235,23 @@ def edit():
   return flask.render_template(
     'edit.html', site=site, NETLIFY_CLIENT_ID=NETLIFY_CLIENT_ID,
     netlify_token=netlify_token)
+
+@app.route('/publish', methods=['POST'])
+def publish():
+  user_id = flask.session.get('user_id')
+  if not user_id:
+    return ('Not Authorized', 403)
+
+  user = rainfall_db.users.find_one({'user_id': user_id})
+  netlify_token = user and user.get('netlify_access_token')
+  if not netlify_token:
+    return ('Bad Request', 400)
+
+  site = rainfall_db.sites.find_one({'user_id': user_id})
+  if not site:
+    return ('Bad Request', 400)
+
+  return ('No Content', 204)
 
 @app.route('/update', methods=['POST'])
 def update():
