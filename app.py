@@ -10,11 +10,12 @@ import urllib.request
 import venv
 
 from google.oauth2 import id_token
-from google.auth.transport import requests
+from google.auth.transport import requests as googrequests
 import flask
 from flask_session import Session
 from flask_wtf.csrf import CSRFProtect
 import pymongo
+import requests
 from werkzeug.utils import secure_filename
 
 client = pymongo.MongoClient(connect=False)
@@ -68,7 +69,7 @@ def create_venv(name):
       '/home/tmoney/code/rainfall-frontend/create_venv.py',
     name], stderr=subprocess.STDOUT)
   except Exception as e:
-    raise TypeError(e.output)
+    raise ValueError(e.output)
   return True
 
 def build_site(site_id):
@@ -83,7 +84,34 @@ def build_site(site_id):
       'build'
     ], stderr=subprocess.STDOUT)
   except Exception as e:
-    raise TypeError(e.output)
+    raise ValueError(e.output)
+
+def create_site_zip(site_id):
+  start_char = site_id[0]
+  base_path = '/var/data/%s/%s' % (start_char, site_id)
+  zip_path = '%s/site.zip' % base_path
+  if os.path.isfile(zip_path):
+    os.unlink(zip_path)
+  try:
+    subprocess.check_call([
+      'sudo', '-u', 'www-data',
+      'zip', zip_path, '-r', '%s/build' % base_path
+    ])
+  except Exception as e:
+    raise ValueError(e.output)
+
+def create_netlify_site(site_id, access_token):
+  start_char = site_id[0]
+  zip_path = '/var/data/%s/%s/site.zip' % (start_char, site_id)
+  with open(zip_path, 'rb') as f:
+    data = f.read()
+  res = requests.post(url='https://api.netlify.com/api/v1/sites',
+                      data=data,
+                      headers={
+                        'Content-Type': 'application/zip',
+                        'Authorization': 'Bearer %s' % access_token,
+                      })
+  res.json['id']
 
 def insert_mongo_record(name):
   start_char = name[0]
@@ -202,7 +230,7 @@ def netlify_token():
 def tokensignin():
   token = flask.request.form['id_token']
   try:
-    idinfo = id_token.verify_oauth2_token(token, requests.Request(),
+    idinfo = id_token.verify_oauth2_token(token, googrequests.Request(),
                                           GOOGLE_CLIENT_ID)
 
     if idinfo['iss'] not in (
@@ -266,6 +294,8 @@ def publish():
     return ('Bad Request', 400)
 
   build_site(site['site_id'])
+  create_site_zip(site['site_id'])
+  create_netlify_site(site['site_id'], netlify_token)
   return ('No Content', 204)
 
 @app.route('/update', methods=['POST'])
@@ -406,11 +436,11 @@ def create():
 def destroy():
   user_id = flask.session.get('user_id')
   if not user_id:
-    return flask.redirect('/')
+    return ('Bad Request', 400)
 
   user = rainfall_db.users.find_one({'user_id': user_id})
   if not user:
-    return flask.redirect('/')
+    return ('Bad Request', 400)
 
   name = sanitize(user['email'])
 

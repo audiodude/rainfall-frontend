@@ -26,12 +26,16 @@
     function signOut() {
       var auth2 = gapi.auth2.getAuthInstance();
       auth2.signOut().then(function() {
-        var xhr = new XMLHttpRequest();
-        xhr.open('POST', 'https://rainfall.dev/destroy');
-        xhr.onload = function() {
-          window.location.href = '/';
-        };
-        xhr.send();
+        $.ajax({
+          url: '/destroy',
+          method: 'POST',
+          headers: {
+           'X-CSRFToken': CSRF_TOKEN,
+          },
+          success: function() {
+            window.location.href = '/';
+          },
+        });
       });
     }
   </script>
@@ -195,7 +199,8 @@
                 If you've deployed your site to the wider internet using
                 Netlify, the deployed site will remain live.
               </p>
-              <button class="btn btn-danger" onclick="return confirmDelete()">
+              <button class="btn btn-danger"
+                      onclick="return confirmDelete()">
                 Delete site
               </button>
             </div>
