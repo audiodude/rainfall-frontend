@@ -1,4 +1,5 @@
 from datetime import timedelta
+import json
 import pip
 import os
 import pathlib
@@ -111,7 +112,7 @@ def create_netlify_site(site_id, access_token):
                         'Content-Type': 'application/zip',
                         'Authorization': 'Bearer %s' % access_token,
                       })
-  res.json['id']
+  return res.json()['id']
 
 def insert_mongo_record(name):
   start_char = name[0]
@@ -214,17 +215,19 @@ def capture_token():
 
   return ('', 204)
 
-@app.route('/netlify_token')
-def netlify_token():
+@app.route('/has_netlify')
+def has_netlify():
   user_id = flask.session.get('user_id')
   if not user_id:
-    return flask.jsonify({'token': ''})
+    return flask.jsonify({'has_netlify': False})
 
   user = rainfall_db.users.find_one({'user_id': user_id})
   if not user:
-    return flask.jsonify({'token': ''})
+    return flask.jsonify({'has_netlify': False})
 
-  return flask.jsonify({'token': user['netlify_access_token']})
+  return flask.jsonify({
+    'has_netlify': bool(user.get('netlify_access_token'))
+  })
 
 @app.route('/tokensignin', methods=['POST'])
 def tokensignin():
@@ -273,10 +276,14 @@ def edit():
   if not site:
     return flask.redirect('/new')
 
+  initial_state = {
+    'netlify_client_id': NETLIFY_CLIENT_ID,
+    'has_connected_netlify': bool(netlify_token),
+  }
+
   wait_for_site_ready(site['site_id'])
   return flask.render_template(
-    'edit.html', site=site, NETLIFY_CLIENT_ID=NETLIFY_CLIENT_ID,
-    netlify_token=netlify_token)
+    'edit.html', site=site, initial_state=json.dumps(initial_state))
 
 @app.route('/publish', methods=['POST'])
 def publish():
@@ -295,7 +302,12 @@ def publish():
 
   build_site(site['site_id'])
   create_site_zip(site['site_id'])
-  create_netlify_site(site['site_id'], netlify_token)
+  netlify_site_id = create_netlify_site(site['site_id'], netlify_token)
+
+  rainfall_db.users.update_one({'user_id': user_id}, {'$set': {
+    'netlify_site_id': netlify_site_id,
+  }}, upsert=True)
+
   return ('No Content', 204)
 
 @app.route('/update', methods=['POST'])
@@ -442,6 +454,7 @@ def destroy():
   if not user:
     return ('Bad Request', 400)
 
+  del flask.session['user_id']
   name = sanitize(user['email'])
 
   delete_repo(name)

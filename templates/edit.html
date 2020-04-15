@@ -10,10 +10,10 @@
   <link rel="stylesheet" href="/static/css/bootstrap.min.css">
   <link rel="stylesheet" href="/static/css/edit.css">
 
+  <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
   <script>
-    NETLIFY_CLIENT_ID = '{{ NETLIFY_CLIENT_ID | safe }}';
-    NETLIFY_ACCESS_TOKEN = '{{ netlify_token | safe }}';
     CSRF_TOKEN = '{{ csrf_token() }}';
+    initial_state = {{ initial_state | safe }};
   </script>
 
   <script>
@@ -43,7 +43,7 @@
 
 </head>
 <body>
-  <div class="container-fluid full-height">
+  <div id="app" class="container-fluid full-height">
     <div class="row full-height">
       <div class="col-4">
         <nav class="navbar navbar-expand-lg navbar-light bg-light">
@@ -139,7 +139,7 @@
             looks, you can connect to Netlify and publish your site.
           </p>
           <div id="netlify-step-1"
-               style="{{ 'display: none;' if netlify_token else ''}}">
+               v-if="!has_connected_netlify && !has_netlify_error">
             <p>
               When you click the button below, you will be asked to connect
               to Netlify and grant permissions to this site, Rainfall.dev to
@@ -148,13 +148,12 @@
             </p>
 
             <button type="button" class="btn btn-secondary"
-                    onclick="netlifyPopup()">
+                    @click="netlifyPopup()">
               Connect to Netlify to publish site
             </button>
           </div>
 
-          <div id="netlify-step-2"
-               style="{{ 'display: none;' if not netlify_token else ''}}">
+          <div id="netlify-step-2" v-if="has_connected_netlify">
             <p>
               You're almost done. Now that you've connected your Netlify
               account to your Rainfall.dev account, you can publish your site
@@ -163,19 +162,19 @@
             </p>
 
             <button type="button" class="btn btn-primary"
-                    onclick="netlifyPublish()">
+                    @click="netlifyPublish()">
               Publish my site
             </button>
           </div>
 
-          <div id="netlify-error" style="display: none;">
+          <div id="netlify-error" v-if="has_netlify_error">
             <p style="color: red">
               There was a problem connecting your Netlify account. You can
               try again below.
             </p>
 
             <button type="button" class="btn btn-secondary"
-                    onclick="netlifyPopup()">
+                    @click="netlifyPopup()">
               Retry connecting to Netlify
             </button>
           </div>
@@ -200,7 +199,7 @@
                 Netlify, the deployed site will remain live.
               </p>
               <button class="btn btn-danger"
-                      onclick="return confirmDelete()">
+                      @click="confirmDelete()">
                 Delete site
               </button>
             </div>
