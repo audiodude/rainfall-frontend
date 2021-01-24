@@ -80,20 +80,6 @@ def clone_repo(name):
   return True
 
 
-def delete_repo(name):
-  start_char = name[0]
-  path = '/var/data/%s/%s/' % (start_char, name)
-  subprocess.check_call([
-      'sudo',
-      '-u',
-      'www-data',
-      'rm',
-      '-rf',
-      path,
-  ])
-  return True
-
-
 def create_venv(name):
   try:
     output = subprocess.check_output([
@@ -201,16 +187,6 @@ def update_nginx(name):
     raise ValueError(e.output)
 
 
-def delete_nginx(name):
-  config_path = '/etc/nginx/sites-available/%s' % name
-  enabled_path = '/etc/nginx/sites-enabled/%s' % name
-  if os.path.isfile(enabled_path):
-    os.unlink(enabled_path)
-  if os.path.isfile(config_path):
-    os.unlink(config_path)
-  return True
-
-
 def insert_rainfall_site(user_id, name):
   year_text = datetime.now().year
   rainfall_db.sites.update_one({'user_id': user_id}, {
@@ -222,27 +198,6 @@ def insert_rainfall_site(user_id, name):
       }
   },
                                upsert=True)
-
-
-def wait_for_site_ready(site_id):
-  retries = 5
-  retrySeconds = .5
-
-  while True:
-    if retries <= 0:
-      return False
-    request = urllib.request.Request(
-        'https://%s.rainfall.dev/' % site_id,
-        headers={'Referer': 'https://rainfall.dev/edit'})
-    try:
-      with urllib.request.urlopen(request) as res:
-        if res.getcode() == 200:
-          return True
-    except:
-      pass
-    finally:
-      time.sleep(retrySeconds)
-      retries -= 1
 
 
 @app.route('/')
@@ -344,7 +299,6 @@ def edit():
       'has_connected_netlify': bool(netlify_token),
   }
 
-  wait_for_site_ready(site['site_id'])
   return flask.render_template('edit.html',
                                SITE_URL=SITE_URL,
                                site=site,
@@ -415,6 +369,10 @@ def get_song_directory(site_id):
 
 def create_song_directory(site_id):
   subprocess.check_call(['mkdir', '-p', get_song_directory(site_id)])
+
+
+def delete_song_directory(site_id):
+  subprocess.check_call(['rm', '-rf', get_song_directory(site_id)])
 
 
 def get_slug(filename):
@@ -535,9 +493,9 @@ def destroy():
   del flask.session['user_id']
   name = sanitize(user['email'])
 
-  delete_repo(name)
+  delete_song_directory(name)
   delete_mongo_record(name)
-  delete_nginx(name)
+
   result = rainfall_db.sites.delete_one({'user_id': user_id})
   if result.deleted_count < 1:
     raise Exception(user_id)
