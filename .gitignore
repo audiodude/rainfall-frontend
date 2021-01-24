@@ -1,3 +1,4 @@
 __pycache__
 venv
 WSGI_CONFIG
+uwsgi.ini

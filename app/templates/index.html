@@ -16,12 +16,12 @@
     function onSignIn(googleUser) {
       var id_token = googleUser.getAuthResponse().id_token;
       var xhr = new XMLHttpRequest();
-      xhr.open('POST', 'https://rainfall.dev/tokensignin');
+      xhr.open('POST', '{{ SITE_URL }}/tokensignin');
       xhr.setRequestHeader(
         'Content-Type', 'application/x-www-form-urlencoded');
       xhr.setRequestHeader('X-CSRFToken', CSRF_TOKEN);
       xhr.onload = function() {
-        window.location.href = 'https://rainfall.dev/edit'
+        window.location.href = '{{ SITE_URL }}/edit'
       };
       xhr.send('id_token=' + id_token);
     }

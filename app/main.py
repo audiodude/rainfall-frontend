@@ -19,73 +19,94 @@ import pymongo
 import requests
 from werkzeug.utils import secure_filename
 
-client = pymongo.MongoClient(connect=False)
-emperor_db = client.emperor
-rainfall_db = client.rainfall
-
 GOOGLE_CLIENT_ID = os.environ['RAINFALL_CLIENT_ID']
 NETLIFY_CLIENT_ID = os.environ['RAINFALL_NETLIFY_CLIENT_ID']
 NETLIFY_CLIENT_SECRET = os.environ['RAINFALL_NETLIFY_CLIENT_SECRET']
+SITE_URL = os.environ['RAINFALL_SITE_URL']
+MONGO_URI = os.environ['RAINFALL_MONGO_URI']
+
+client = pymongo.MongoClient(MONGO_URI, connect=False)
+emperor_db = client.emperor
+rainfall_db = client.rainfall
 
 app = flask.Flask(__name__)
 app.config.update({
-  'SESSION_TYPE': 'mongodb',
-  'SESSION_MONGODB_DB': 'rainfall',
-  'SESSION_COOKIE_SECURE': False,
-  'SESSION_USE_SIGNER': True,
-  'SECRET_KEY': os.environ['FLASK_SECRET'],
-  'PERMANENT_SESSION_LIFETIME': timedelta(days=90),
+    'SESSION_TYPE': 'mongodb',
+    'SESSION_MONGODB_DB': 'rainfall',
+    'SESSION_COOKIE_SECURE': False,
+    'SESSION_USE_SIGNER': True,
+    'SECRET_KEY': os.environ['FLASK_SECRET'],
+    'PERMANENT_SESSION_LIFETIME': timedelta(days=90),
 })
 csrf = CSRFProtect(app)
 app.debug = True
 
 ALLOWED_EXTENSIONS = set(['mp3'])
 
+
 def clone_repo(name):
   start_char = name[0]
   subprocess.check_call([
-    'sudo', '-u', 'www-data', 'mkdir', '-p',
-    '/var/data/%s' % start_char,
+      'sudo',
+      '-u',
+      'www-data',
+      'mkdir',
+      '-p',
+      '/var/data/%s' % start_char,
   ])
   path = '/var/data/%s/%s/' % (start_char, name)
   subprocess.check_call([
-    'sudo', '-u', 'www-data', 'git', 'clone',
-    'https://github.com/audiodude/rainfall-template.git',
-    path,
+      'sudo',
+      '-u',
+      'www-data',
+      'git',
+      'clone',
+      'https://github.com/audiodude/rainfall-template.git',
+      path,
   ])
   return True
+
 
 def delete_repo(name):
   start_char = name[0]
   path = '/var/data/%s/%s/' % (start_char, name)
   subprocess.check_call([
-    'sudo', '-u', 'www-data', 'rm', '-rf', path,
+      'sudo',
+      '-u',
+      'www-data',
+      'rm',
+      '-rf',
+      path,
   ])
   return True
+
 
 def create_venv(name):
   try:
     output = subprocess.check_output([
-      'sudo', '-u', 'www-data', '/usr/bin/python3',
-      '/home/tmoney/code/rainfall-frontend/create_venv.py',
-    name], stderr=subprocess.STDOUT)
+        'sudo', '-u', 'www-data', '/usr/bin/python3',
+        '/home/tmoney/code/rainfall-frontend/create_venv.py', name
+    ],
+                                     stderr=subprocess.STDOUT)
   except Exception as e:
     raise ValueError(e.output)
   return True
+
 
 def build_site(site_id):
   start_char = site_id[0]
   base_path = '/var/data/%s/%s' % (start_char, site_id)
   try:
     subprocess.check_call([
-      'sudo', '-u', 'www-data',
-      'RAINFALL_SITE_ID=%s' % site_id,
-      '%s/venv/bin/python3' % base_path,
-      '%s/sitebuilder.py' % base_path,
-      'build'
-    ], stderr=subprocess.STDOUT)
+        'sudo', '-u', 'www-data',
+        'RAINFALL_SITE_ID=%s' % site_id,
+        '%s/venv/bin/python3' % base_path,
+        '%s/sitebuilder.py' % base_path, 'build'
+    ],
+                          stderr=subprocess.STDOUT)
   except Exception as e:
     raise ValueError(e.output)
+
 
 def create_site_zip(site_id):
   start_char = site_id[0]
@@ -95,11 +116,12 @@ def create_site_zip(site_id):
     os.unlink(zip_path)
   try:
     subprocess.check_call([
-      'sudo', '-u', 'www-data',
-      'zip', zip_path, '-r', '%s/build' % base_path
+        'sudo', '-u', 'www-data', 'zip', zip_path, '-r',
+        '%s/build' % base_path
     ])
   except Exception as e:
     raise ValueError(e.output)
+
 
 def create_netlify_site(site_id, access_token):
   start_char = site_id[0]
@@ -109,16 +131,19 @@ def create_netlify_site(site_id, access_token):
   res = requests.post(url='https://api.netlify.com/api/v1/sites',
                       data=data,
                       headers={
-                        'Content-Type': 'application/zip',
-                        'Authorization': 'Bearer %s' % access_token,
+                          'Content-Type': 'application/zip',
+                          'Authorization': 'Bearer %s' % access_token,
                       })
   return res.json()['id']
+
 
 def insert_mongo_record(name):
   start_char = name[0]
   mongo_config = {
-    "name" : "%s.ini" % name,
-    "config" : '''[uwsgi]
+      "name":
+          "%s.ini" % name,
+      "config":
+          '''[uwsgi]
 virtualenv = /var/data/%(start_char)s/%(name)s/venv
 uid = www-data
 gid = www-data
@@ -127,16 +152,24 @@ plugin = python
 callable = app
 env = RAINFALL_SITE_ID=%(name)s
 env = CHECK_REFERER=1
-''' % {'start_char': start_char, 'name': name},
-    "ts" : time.gmtime(),
-    "socket" : "/var/run/uwsgi/%s.socket" % name,
-    "enabled" : 1
+''' % {
+              'start_char': start_char,
+              'name': name
+          },
+      "ts":
+          time.gmtime(),
+      "socket":
+          "/var/run/uwsgi/%s.socket" % name,
+      "enabled":
+          1
   }
 
   emperor_db.vassals.insert_one(mongo_config)
 
+
 def delete_mongo_record(name):
   emperor_db.vassals.delete_one({'name': '%s.ini' % name})
+
 
 def update_nginx(name):
   config = flask.render_template('nginx.txt', name=name)
@@ -149,8 +182,8 @@ def update_nginx(name):
     os.unlink(enabled_path)
   os.symlink(config_path, enabled_path)
   try:
-    subprocess.check_output(
-      ['sudo', 'service', 'nginx', 'reload'], stderr=subprocess.STDOUT)
+    subprocess.check_output(['sudo', 'service', 'nginx', 'reload'],
+                            stderr=subprocess.STDOUT)
   except Exception as e:
     raise ValueError(e.output)
 
@@ -164,13 +197,18 @@ def delete_nginx(name):
     os.unlink(config_path)
   return True
 
+
 def insert_rainfall_site(user_id, name):
-  rainfall_db.sites.update_one({'user_id': user_id}, {'$set': {
-      'user_id': user_id,
-      'site_id': name,
-      'header': 'Songs and Sounds by [Rainfall](https://rainfall.dev)',
-      'footer': 'Copyright 2019, All Rights Reserved',
-    }}, upsert=True)
+  rainfall_db.sites.update_one({'user_id': user_id}, {
+      '$set': {
+          'user_id': user_id,
+          'site_id': name,
+          'header': 'Songs and Sounds by [Rainfall](https://rainfall.dev)',
+          'footer': 'Copyright 2019, All Rights Reserved',
+      }
+  },
+                               upsert=True)
+
 
 def wait_for_site_ready(site_id):
   retries = 5
@@ -180,8 +218,8 @@ def wait_for_site_ready(site_id):
     if retries <= 0:
       return False
     request = urllib.request.Request(
-      'https://%s.rainfall.dev/' % site_id,
-      headers={'Referer' : 'https://rainfall.dev/edit'})
+        'https://%s.rainfall.dev/' % site_id,
+        headers={'Referer': 'https://rainfall.dev/edit'})
     try:
       with urllib.request.urlopen(request) as res:
         if res.getcode() == 200:
@@ -192,16 +230,19 @@ def wait_for_site_ready(site_id):
       time.sleep(retrySeconds)
       retries -= 1
 
+
 @app.route('/')
 def index():
   if flask.session.get('user_id'):
     return flask.redirect('/edit')
 
-  return flask.render_template('index.html')
+  return flask.render_template('index.html', SITE_URL=SITE_URL)
+
 
 @app.route('/oauth2')
 def oauth2():
-  return flask.render_template('capture_token.html')
+  return flask.render_template('capture_token.html', SITE_URL=SITE_URL)
+
 
 @app.route('/capture_token')
 def capture_token():
@@ -209,11 +250,15 @@ def capture_token():
   if user_id:
     access_token = flask.request.args.get('access_token')
     if access_token:
-      rainfall_db.users.update_one({'user_id': user_id}, {'$set': {
-        'netlify_access_token': access_token,
-      }}, upsert=True)
+      rainfall_db.users.update_one(
+          {'user_id': user_id},
+          {'$set': {
+              'netlify_access_token': access_token,
+          }},
+          upsert=True)
 
   return ('', 204)
+
 
 @app.route('/has_netlify')
 def has_netlify():
@@ -225,9 +270,8 @@ def has_netlify():
   if not user:
     return flask.jsonify({'has_netlify': False})
 
-  return flask.jsonify({
-    'has_netlify': bool(user.get('netlify_access_token'))
-  })
+  return flask.jsonify({'has_netlify': bool(user.get('netlify_access_token'))})
+
 
 @app.route('/tokensignin', methods=['POST'])
 def tokensignin():
@@ -236,8 +280,8 @@ def tokensignin():
     idinfo = id_token.verify_oauth2_token(token, googrequests.Request(),
                                           GOOGLE_CLIENT_ID)
 
-    if idinfo['iss'] not in (
-        'accounts.google.com', 'https://accounts.google.com'):
+    if idinfo['iss'] not in ('accounts.google.com',
+                             'https://accounts.google.com'):
       raise ValueError('Wrong issuer.')
 
     if idinfo['aud'] != GOOGLE_CLIENT_ID:
@@ -245,12 +289,15 @@ def tokensignin():
 
     user_id = idinfo['sub']
 
-    rainfall_db.users.update_one({'user_id': user_id}, {'$set': {
-      'user_id': user_id,
-      'email': idinfo['email'],
-      'name': idinfo['name'],
-      'picture': idinfo['picture'],
-    }}, upsert=True)
+    rainfall_db.users.update_one({'user_id': user_id}, {
+        '$set': {
+            'user_id': user_id,
+            'email': idinfo['email'],
+            'name': idinfo['name'],
+            'picture': idinfo['picture'],
+        }
+    },
+                                 upsert=True)
     flask.session['user_id'] = user_id
     return ('', 204)
   except ValueError as e:
@@ -258,10 +305,12 @@ def tokensignin():
     # Invalid token
     return ('Sign in error', 403)
 
+
 @app.route('/signout')
 def signout():
   del flask.session['user_id']
   return flask.redirect('/')
+
 
 @app.route('/edit')
 def edit():
@@ -277,13 +326,16 @@ def edit():
     return flask.redirect('/new')
 
   initial_state = {
-    'netlify_client_id': NETLIFY_CLIENT_ID,
-    'has_connected_netlify': bool(netlify_token),
+      'netlify_client_id': NETLIFY_CLIENT_ID,
+      'has_connected_netlify': bool(netlify_token),
   }
 
   wait_for_site_ready(site['site_id'])
-  return flask.render_template(
-    'edit.html', site=site, initial_state=json.dumps(initial_state))
+  return flask.render_template('edit.html',
+                               SITE_URL=SITE_URL,
+                               site=site,
+                               initial_state=json.dumps(initial_state))
+
 
 @app.route('/publish', methods=['POST'])
 def publish():
@@ -304,11 +356,14 @@ def publish():
   create_site_zip(site['site_id'])
   netlify_site_id = create_netlify_site(site['site_id'], netlify_token)
 
-  rainfall_db.users.update_one({'user_id': user_id}, {'$set': {
-    'netlify_site_id': netlify_site_id,
-  }}, upsert=True)
+  rainfall_db.users.update_one({'user_id': user_id},
+                               {'$set': {
+                                   'netlify_site_id': netlify_site_id,
+                               }},
+                               upsert=True)
 
   return ('No Content', 204)
+
 
 @app.route('/update', methods=['POST'])
 def update():
@@ -325,28 +380,30 @@ def update():
 
   if header is not None or footer is not None:
     rainfall_db.sites.update({
-      'site_id': site['site_id'],
-    }, {
-      '$set': {
+        'site_id': site['site_id'],
+    }, {'$set': {
         'header': header,
         'footer': footer,
-      }
-    })
+    }})
 
   return flask.redirect('/edit#site')
 
+
 def allowed_file(filename):
-    return '.' in filename and \
-           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+  return '.' in filename and \
+         filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
 
 def get_song_directory(site_id):
   start_char = site_id[0]
   return '/var/data/%s/%s/static/mp3' % (start_char, site_id)
 
+
 def get_slug(filename):
   base = filename.split('.', 1)[0]
   filename = re.sub('\W', '_', base)
   return re.sub('--+', '', filename)
+
 
 def process_tags(raw_tags):
   tags = []
@@ -355,6 +412,7 @@ def process_tags(raw_tags):
     if chunk.startswith('#'):
       tags.append(chunk.replace('#', ''))
   return tags
+
 
 @app.route('/upload', methods=['POST'])
 def upload():
@@ -383,20 +441,23 @@ def upload():
   tags = process_tags(raw_tags)
 
   song_document = {
-    'name': name,
-    'slug': slug,
-    'description': description,
-    'tags': tags,
-    'date_created': time.time(),
+      'name': name,
+      'slug': slug,
+      'description': description,
+      'tags': tags,
+      'date_created': time.time(),
   }
 
   rainfall_db.sites.update({
-    'site_id': site['site_id'],
+      'site_id': site['site_id'],
   }, {
-    '$addToSet': {'songs': song_document},
+      '$addToSet': {
+          'songs': song_document
+      },
   })
 
-  return ('', 203)
+  return ('', 204)
+
 
 @app.route('/new')
 def new():
@@ -412,12 +473,14 @@ def new():
   if site:
     return flask.redirect('/edit')
 
-  return flask.render_template('new.html', user=user)
+  return flask.render_template('new.html', SITE_URL=SITE_URL, user=user)
+
 
 def sanitize(name):
   name = re.sub('[^a-zA-Z0-9]', '-', name)
   name = re.sub('-+', '-', name)
   return name
+
 
 @app.route('/create', methods=['POST'])
 def create():
@@ -444,6 +507,7 @@ def create():
   else:
     return 'Error'
 
+
 @app.route('/destroy', methods=['POST'])
 def destroy():
   user_id = flask.session.get('user_id')
@@ -468,4 +532,3 @@ def destroy():
     raise Exception(user_id)
 
   return flask.redirect('/')
-  
