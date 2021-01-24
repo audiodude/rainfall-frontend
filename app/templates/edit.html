@@ -79,7 +79,7 @@
             <div class="form-group">
               <label for="song-tags">Tags</label>
               <input class="form-control" id="song-tags" name="tags"
-                     placeholder="#tags #separated.by #hashes">
+                     placeholder="#tags #separated.by #spaces">
             </div>
 
             <div class="form-group">
@@ -99,7 +99,7 @@
 
             <div class="form-group">
               <button class="btn btn-primary"
-                      onclick="uploadSong(); return false;">
+                      @click="uploadSong()">
                 Upload song
               </button>
             </div>

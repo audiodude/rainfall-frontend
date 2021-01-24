@@ -26,6 +26,7 @@ NETLIFY_CLIENT_ID = os.environ['RAINFALL_NETLIFY_CLIENT_ID']
 NETLIFY_CLIENT_SECRET = os.environ['RAINFALL_NETLIFY_CLIENT_SECRET']
 SITE_URL = os.environ['RAINFALL_SITE_URL']
 MONGO_URI = os.environ['RAINFALL_MONGO_URI']
+SONG_DIR = os.environ['RAINFALL_SONG_DIR']
 
 client = pymongo.MongoClient(MONGO_URI, connect=False)
 emperor_db = client.emperor
@@ -409,7 +410,11 @@ def allowed_file(filename):
 
 def get_song_directory(site_id):
   start_char = site_id[0]
-  return '/var/data/%s/%s/static/mp3' % (start_char, site_id)
+  return os.path.join(SONG_DIR, start_char, site_id, 'mp3')
+
+
+def create_song_directory(site_id):
+  subprocess.check_call(['mkdir', '-p', get_song_directory(site_id)])
 
 
 def get_slug(filename):
@@ -512,6 +517,7 @@ def create():
   name = user['email']
   name = sanitize(name)
 
+  create_song_directory(name)
   insert_rainfall_site(user_id, name)
   return flask.redirect('/edit')
 
