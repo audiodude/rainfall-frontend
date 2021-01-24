@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import timedelta, datetime
 import json
 import pip
 import os
@@ -18,6 +18,8 @@ from flask_wtf.csrf import CSRFProtect
 import pymongo
 import requests
 from werkzeug.utils import secure_filename
+
+from preview.site import site
 
 GOOGLE_CLIENT_ID = os.environ['RAINFALL_CLIENT_ID']
 NETLIFY_CLIENT_ID = os.environ['RAINFALL_NETLIFY_CLIENT_ID']
@@ -42,6 +44,16 @@ csrf = CSRFProtect(app)
 app.debug = True
 
 ALLOWED_EXTENSIONS = set(['mp3'])
+
+
+def register_sites():
+  for s in rainfall_db.sites.find():
+    app.register_blueprint(site,
+                           url_prefix='/preview/%s' % s['site_id'],
+                           url_defaults={'site_id': s['site_id']})
+
+
+register_sites()
 
 
 def clone_repo(name):
@@ -199,12 +211,13 @@ def delete_nginx(name):
 
 
 def insert_rainfall_site(user_id, name):
+  year_text = datetime.now().year
   rainfall_db.sites.update_one({'user_id': user_id}, {
       '$set': {
           'user_id': user_id,
           'site_id': name,
           'header': 'Songs and Sounds by [Rainfall](https://rainfall.dev)',
-          'footer': 'Copyright 2019, All Rights Reserved',
+          'footer': 'Copyright %s, All Rights Reserved' % year_text,
       }
   },
                                upsert=True)
@@ -499,13 +512,8 @@ def create():
   name = user['email']
   name = sanitize(name)
 
-  if clone_repo(name) and create_venv(name):
-    insert_mongo_record(name)
-    update_nginx(name)
-    insert_rainfall_site(user_id, name)
-    return flask.redirect('/edit')
-  else:
-    return 'Error'
+  insert_rainfall_site(user_id, name)
+  return flask.redirect('/edit')
 
 
 @app.route('/destroy', methods=['POST'])

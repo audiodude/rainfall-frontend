@@ -1,0 +1,42 @@
+{% extends "site/base.html" %}
+
+{% block content %}
+<header class="single">
+<h1>
+  Songs and Sounds by <br><a href="https://github.com/audiodude/rainfall">Rainfall</a>
+</h1>
+</header>
+
+<div class="cont">
+  <div class="single">
+    <h2 class="title">{{ song['name'] }}</h2>
+    {% include 'player.html' %}
+    <div class="tags">
+      {% for tag in song['tags'] %}
+      <span class="tag">#{{ tag }}</span>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="description">
+    {{ song['description_html'] | safe }}
+  </div>
+</div>
+
+<div class="faq">
+  {{ faq }}
+</div>
+
+<hr class="related-hr">
+
+{% for tag in song['tags'] if song.related[tag]|length != 0 %}
+<div class="related">
+  <h3>Other songs tagged '{{ tag }}'</h3>
+  <ul>
+    {% for song in song.related[tag] %}
+      {% include 'song_block.html' %}
+    {% endfor %}
+  </ul>
+</div>
+{% endfor %}
+
+{% endblock content %}

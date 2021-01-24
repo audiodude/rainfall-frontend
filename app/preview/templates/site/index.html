@@ -1,0 +1,13 @@
+{% extends "site/base.html" %}
+
+{% block content %}
+<header>
+  {{header}}
+</header>
+
+<ul>
+{% for song in songs %}
+  {% include 'song_block.html' %}
+{% endfor %}
+</ul> 
+{% endblock content %}
