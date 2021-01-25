@@ -97,7 +97,6 @@ def index():
 
 @site.route('/file/<filename>')
 def file_(filename):
-  print('Getting file')
   # Use the user id from the session, not from the URL which could be spoofed.
   user_id = session.get('user_id')
   if not user_id:
