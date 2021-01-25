@@ -6,10 +6,8 @@
 
   <title>Songs and Sounds{{' - %s' % title if title else ''}}</title>
 
-  <link rel="stylesheet" href="static/css/reset.css">
-  <link rel="stylesheet" href="static/css/dist/fa-svg-with-js.css">
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Oswald|Roboto">
-  <link rel="stylesheet" href="static/css/style.css">
+  {% block stylesheets %}
+  {% endblock stylesheets %}
 
 </head>
 <body>

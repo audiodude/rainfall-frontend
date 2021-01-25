@@ -11,8 +11,12 @@ from flask import Markup
 from flask import g
 from flask import render_template
 from flask import request
+from flask import send_from_directory
+from flask import session
 from flask_frozen import Freezer
 from pymongo import MongoClient
+
+from util import get_song_directory
 
 client = MongoClient(connect=False)
 rainfall_db = client.rainfall
@@ -32,11 +36,16 @@ song_colors = [
     '#2AC8C6',
 ]
 
+ENV = os.environ.get('RAINFALL_ENV', 'development')
+
 
 def _annotate(song, i):
   if 'src' in song:
     return
-  song['src'] = '/static/mp3/' + song['slug'] + '.mp3'
+  if ENV == 'development':
+    song['src'] = 'file/%s.mp3' % (song['slug'])
+  else:
+    song['src'] = '/static/mp3/' + song['slug'] + '.mp3'
   song['dt'] = datetime.fromtimestamp(song['date_created'])
   _add_color(song, i)
 
@@ -52,12 +61,19 @@ def pull_lang_code(endpoint, values):
 
 @site.route('/')
 def index():
+  if ENV == 'development':
+    user_id = session.get('user_id')
+    if not user_id:
+      return ('Not Authorized', 403)
+
   if g.site_id is None:
     return ('Not Found', 404)
 
   site = rainfall_db.sites.find_one({'site_id': g.site_id})
   if site is None:
     return ('Not Found', 404)
+  elif ENV == 'development' and site['user_id'] != user_id:
+    return ('Not Authorized', 403)
 
   songs = site.get('songs', [])
 
@@ -77,6 +93,22 @@ def index():
                          songs=sorted_songs,
                          header=header,
                          footer=footer)
+
+
+@site.route('/file/<filename>')
+def file_(filename):
+  print('Getting file')
+  # Use the user id from the session, not from the URL which could be spoofed.
+  user_id = session.get('user_id')
+  if not user_id:
+    (404, 'Not found')
+
+  site = rainfall_db.sites.find_one({'user_id': user_id})
+  if not site:
+    (404, 'Not found')
+
+  if site:
+    return send_from_directory(get_song_directory(site['site_id']), filename)
 
 
 @site.route('/<slug>/')

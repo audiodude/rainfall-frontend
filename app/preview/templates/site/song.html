@@ -1,5 +1,12 @@
 {% extends "site/base.html" %}
 
+{% block stylesheets %}
+  <link rel="stylesheet" href="../static/css/reset.css">
+  <link rel="stylesheet" href="../static/css/dist/fa-svg-with-js.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Oswald|Roboto">
+  <link rel="stylesheet" href="../static/css/style.css">
+{% endblock stylesheets %}
+
 {% block content %}
 <header class="single">
 <h1>
@@ -10,7 +17,7 @@
 <div class="cont">
   <div class="single">
     <h2 class="title">{{ song['name'] }}</h2>
-    {% include 'player.html' %}
+    {% include 'site/player.html' %}
     <div class="tags">
       {% for tag in song['tags'] %}
       <span class="tag">#{{ tag }}</span>
@@ -33,7 +40,7 @@
   <h3>Other songs tagged '{{ tag }}'</h3>
   <ul>
     {% for song in song.related[tag] %}
-      {% include 'song_block.html' %}
+      {% include 'site/song_block.html' %}
     {% endfor %}
   </ul>
 </div>

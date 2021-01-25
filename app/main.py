@@ -10,23 +10,25 @@ import time
 import urllib.request
 import venv
 
-from google.oauth2 import id_token
-from google.auth.transport import requests as googrequests
+from dotenv import load_dotenv
 import flask
 from flask_session import Session
 from flask_wtf.csrf import CSRFProtect
+from google.oauth2 import id_token
+from google.auth.transport import requests as googrequests
 import pymongo
 import requests
 from werkzeug.utils import secure_filename
 
 from preview.site import site
+from util import get_song_directory
 
+load_dotenv()
 GOOGLE_CLIENT_ID = os.environ['RAINFALL_CLIENT_ID']
 NETLIFY_CLIENT_ID = os.environ['RAINFALL_NETLIFY_CLIENT_ID']
 NETLIFY_CLIENT_SECRET = os.environ['RAINFALL_NETLIFY_CLIENT_SECRET']
 SITE_URL = os.environ['RAINFALL_SITE_URL']
 MONGO_URI = os.environ['RAINFALL_MONGO_URI']
-SONG_DIR = os.environ['RAINFALL_SONG_DIR']
 
 client = pymongo.MongoClient(MONGO_URI, connect=False)
 emperor_db = client.emperor
@@ -360,11 +362,6 @@ def update():
 def allowed_file(filename):
   return '.' in filename and \
          filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-
-def get_song_directory(site_id):
-  start_char = site_id[0]
-  return os.path.join(SONG_DIR, start_char, site_id, 'mp3')
 
 
 def create_song_directory(site_id):
